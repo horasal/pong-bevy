@@ -22,6 +22,8 @@ Right Paddle:
 * Down Arrow: move down
 * P: manual/auto mode
 
+# License
+MIT
 
 # Assets used
 
