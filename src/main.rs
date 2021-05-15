@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy_egui::{EguiContext, EguiPlugin, egui::Pos2};
+use bevy_egui::egui;
 
 enum PaddleType {
     Left,
@@ -20,14 +22,6 @@ struct Ball {
     speed_fact: f32,
 }
 
-struct Materials {
-    ball_material: Handle<ColorMaterial>,
-}
-
-struct PaddleMaterial {
-    material: Handle<ColorMaterial>,
-}
-
 struct Score {
     score: i64,
     paddle_type: PaddleType,
@@ -35,10 +29,6 @@ struct Score {
 
 struct Counter {
     count: i64,
-}
-
-struct ScoreFont {
-    font: Handle<Font>,
 }
 
 struct Sounds {
@@ -56,57 +46,26 @@ struct Sounds {
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_resource(bevy::render::pass::ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+        .add_plugin(EguiPlugin)
+        .insert_resource(bevy::render::pass::ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+        .insert_resource(Counter { count: 0 })
         .add_startup_system(setup.system())
-        .add_startup_stage("game_setup")
-        .add_startup_system_to_stage("game_setup", spawn_ball.system())
-        .add_startup_system_to_stage("game_setup", spawn_paddle.system())
+        .add_startup_system(spawn_ball.system())
+        .add_startup_system(spawn_paddle.system())
         .add_system(ball_move.system())
         .add_system(ball_speed_up.system())
-        .add_system(update_score.system())
         .add_system(transform_paddle.system())
         .add_system(move_paddle.system())
         .add_system(ball_collision.system())
         .add_system(auto_move_paddle.system())
+        .add_system(ui.system())
         .run();
 }
 
-
-/*
-  The very first system executed
-
-  In this function, we:
-  1) initialize camera (`Camera2dComponents` and `UiCameraComponents`)
-  2) load textures (`ball.png` and `paddle1.png`)
-  3) load font ('font.ttf')
-  4) load sounds (`button.mp3` and `ping.mp4`)
-
-  `Commands` is used to spawn component into the world.
-  Function signature should have the order:
-   Commands - Resources - Queries
-  or it will not be recognized as a system.
-*/
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.spawn(Camera2dComponents::default());
-    commands.spawn(UiCameraComponents::default());
-
-    let mat = asset_server.load("ball.png");
-    commands.insert_resource(Materials {
-        ball_material: materials.add(mat.into()),
-    });
-
-    let mat = asset_server.load("paddle1.png");
-    commands.insert_resource(PaddleMaterial {
-        material: materials.add(mat.into()),
-    });
-    commands.insert_resource(ScoreFont {
-        font: asset_server.load("font.ttf"),
-    });
-    commands.insert_resource(Counter { count: 0 });
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn()
+        .insert_bundle(OrthographicCameraBundle::new_2d());
     commands.insert_resource(Sounds {
         button: asset_server.load("button.mp3"),
         ping: asset_server.load("ping.mp3"),
@@ -114,14 +73,32 @@ fn setup(
 }
 
 /*
-  Move the ball according to its speed. 
-  Direction, speed, etc. will be set in other system. 
+   render score
+*/
+fn ui(context: ResMut<EguiContext>, score: Query<&Score>, win: Res<Windows>,) {
+    let win = win.get_primary().unwrap();
+    egui::Window::new("score")
+    .scroll(false)
+    .default_pos(Pos2::new(win.width()/2.0-20.0, 0.0))
+    .show(context.ctx(), |ui| {
+        for s in score.iter() {
+            ui.label(match s.paddle_type {
+                PaddleType::Left => format!("Left: {}", s.score),
+                PaddleType::Right => format!("Right: {}", s.score)
+            });
+        }
+    });
+}
+
+/*
+  Move the ball according to its speed.
+  Direction, speed, etc. will be set in other system.
   We only focus on moving it here.
 */
 fn ball_move(mut position: Query<(&Ball, &mut Transform)>) {
     for (ball, mut transform) in position.iter_mut() {
-        *transform.translation.x_mut() += ball.x * ball.speed_fact;
-        *transform.translation.y_mut() += ball.y * ball.speed_fact;
+        transform.translation.x += ball.x * ball.speed_fact;
+        transform.translation.y += ball.y * ball.speed_fact;
     }
 }
 
@@ -145,16 +122,16 @@ fn ball_collision(
     let height = win.height() as f32 / 2.0 - 20.;
     let width = win.width() as f32 / 2.0 - 20.;
     for (mut ball, mut transform) in position.iter_mut() {
-        if transform.translation.y() >= height || transform.translation.y() <= -height {
+        if transform.translation.y >= height || transform.translation.y <= -height {
             ball.y = -ball.y;
             audio.play(sounds.button.clone());
         }
-        if transform.translation.x() >= width {
+        if transform.translation.x >= width {
             for (paddle, pos) in paddle_position.iter() {
                 match paddle.paddle_type {
                     PaddleType::Right => {
-                        if transform.translation.y() > pos.y - 50.
-                            && transform.translation.y() < pos.y + 50.0
+                        if transform.translation.y > pos.y - 50.
+                            && transform.translation.y < pos.y + 50.0
                         {
                             ball.x = -ball.x;
                             counter.count += 1;
@@ -173,16 +150,16 @@ fn ball_collision(
                     _ => {}
                 }
             }
-            *transform.translation.x_mut() = 0.;
-            *transform.translation.y_mut() = 0.;
+            transform.translation.x = 0.;
+            transform.translation.y = 0.;
             counter.count = 0;
             audio.play(sounds.ping.clone());
-        } else if transform.translation.x() <= -width {
+        } else if transform.translation.x <= -width {
             for (paddle, pos) in paddle_position.iter() {
                 match paddle.paddle_type {
                     PaddleType::Left => {
-                        if transform.translation.y() > pos.y - 50.
-                            && transform.translation.y() < pos.y + 50.0
+                        if transform.translation.y > pos.y - 50.
+                            && transform.translation.y < pos.y + 50.0
                         {
                             ball.x = -ball.x;
                             counter.count += 1;
@@ -201,8 +178,8 @@ fn ball_collision(
                     _ => {}
                 }
             }
-            *transform.translation.x_mut() = 0.;
-            *transform.translation.y_mut() = 0.;
+            transform.translation.x = 0.;
+            transform.translation.y = 0.;
             counter.count = 0;
             audio.play(sounds.ping.clone());
         }
@@ -216,14 +193,6 @@ fn ball_speed_up(counter: Res<Counter>, mut ball: Query<&mut Ball>, score: Query
     }
 }
 
-/*
-   refresh the text component to show the latest score
-*/
-fn update_score(mut score_text: Query<(&Score, &mut Text)>) {
-    for (score, mut text) in score_text.iter_mut() {
-        text.value = format!("Score: {}", score.score);
-    }
-}
 
 /*
   move paddles
@@ -233,7 +202,7 @@ fn update_score(mut score_text: Query<(&Score, &mut Text)>) {
 */
 fn transform_paddle(windows: Res<Windows>, mut q: Query<(&Paddle, &Position, &mut Transform)>) {
     let win = windows.get_primary().unwrap();
-    let paddle_x = ((win.width() / 2) - 10) as f32;
+    let paddle_x = (win.width() / 2.0) - 10.0;
     for (paddle, pos, mut transform) in q.iter_mut() {
         transform.translation = Vec3::new(
             match paddle.paddle_type {
@@ -262,11 +231,11 @@ fn auto_move_paddle(
     let (ball, trans) = b.iter().next().unwrap();
     for (paddle, mut pos) in q.iter_mut() {
         if paddle.is_auto {
-            let target_y = trans.translation.y()
+            let target_y = trans.translation.y
                 + ball.y
                     * match paddle.paddle_type {
-                        PaddleType::Left => (-width/2.0 - trans.translation.x()) / ball.x,
-                        PaddleType::Right => (width/2.0 - trans.translation.x()) / ball.x,
+                        PaddleType::Left => (-width / 2.0 - trans.translation.x) / ball.x,
+                        PaddleType::Right => (width / 2.0 - trans.translation.x) / ball.x,
                     };
             if target_y > pos.y {
                 pos.y += speed;
@@ -279,7 +248,7 @@ fn auto_move_paddle(
 
 /*
   move paddles according to `Input<KeyCode>`
-  1) Left Paddle: 
+  1) Left Paddle:
      W - up
      D - down
      P - auto/manual
@@ -328,14 +297,21 @@ fn move_paddle(
     }
 }
 
-fn spawn_ball(mut commands: Commands, material: Res<Materials>) {
+fn spawn_ball(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mat = asset_server.load("ball.png");
+    let mat = materials.add(mat.into());
     commands
-        .spawn(SpriteComponents {
-            material: material.ball_material.clone(),
+        .spawn()
+        .insert_bundle(SpriteBundle {
+            material: mat,
             sprite: Sprite::new(Vec2::new(40.0, 40.0)),
             ..Default::default()
         })
-        .with(Ball {
+        .insert(Ball {
             x: 3.0,
             y: 3.0,
             speed_fact: 1.0,
@@ -345,65 +321,41 @@ fn spawn_ball(mut commands: Commands, material: Res<Materials>) {
 /*
   Spawn two Paddles, two Score Textcomponents
 */
-fn spawn_paddle(mut commands: Commands, font: Res<ScoreFont>, material: Res<PaddleMaterial>) {
+fn spawn_paddle(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let mat = asset_server.load("paddle1.png");
+    let mat = materials.add(mat.into());
     commands
-        .spawn(SpriteComponents {
-            material: material.material.clone(),
+        .spawn()
+        .insert_bundle(SpriteBundle {
+            material: mat.clone(),
             sprite: Sprite::new(Vec2::new(20.0, 100.0)),
             ..Default::default()
         })
-        .with(Paddle {
+        .insert(Paddle {
             paddle_type: PaddleType::Left,
             is_auto: true,
         })
-        .with(Position { y: 0.0 })
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                ..Default::default()
-            },
-            text: Text {
-                value: "Score:".to_string(),
-                font: font.font.clone(),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::RED,
-                    ..Default::default()
-                },
-            },
-            ..Default::default()
-        })
-        .with(Score {
+        .insert(Position { y: 0.0 })
+        .insert(Score {
             score: 0,
             paddle_type: PaddleType::Left,
-        })
-        .spawn(SpriteComponents {
-            material: material.material.clone(),
+        });
+    commands.spawn()
+        .insert_bundle(SpriteBundle {
+            material: mat,
             sprite: Sprite::new(Vec2::new(20.0, 100.0)),
             ..Default::default()
         })
-        .with(Position { y: 0.0 })
-        .with(Paddle {
+        .insert(Position { y: 0.0 })
+        .insert(Paddle {
             paddle_type: PaddleType::Right,
             is_auto: true,
         })
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                ..Default::default()
-            },
-            text: Text {
-                value: "Score:".to_string(),
-                font: font.font.clone(),
-                style: TextStyle {
-                    font_size: 60.0,
-                    color: Color::BLUE,
-                    ..Default::default()
-                },
-            },
-            ..Default::default()
-        })
-        .with(Score {
+        .insert(Score {
             score: 0,
             paddle_type: PaddleType::Right,
         });
