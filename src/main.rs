@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}, prelude::*};
 use bevy_egui::{EguiContext, EguiPlugin, egui::Pos2};
 use bevy_egui::egui;
 
@@ -45,6 +45,8 @@ struct Sounds {
 */
 fn main() {
     App::build()
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .insert_resource(bevy::render::pass::ClearColor(Color::rgb(1.0, 1.0, 1.0)))
