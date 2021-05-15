@@ -2,6 +2,8 @@
 
 A simple [Pong](https://en.wikipedia.org/wiki/Pong) implementation with the [Bevy Game Engine](https://github.com/bevyengine/bevy).
 
+![Demo](screenshot.jpg "Screenshot")
+
 # Compile
 
 ```rust
