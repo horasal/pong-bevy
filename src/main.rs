@@ -89,6 +89,9 @@ fn ui(context: ResMut<EguiContext>, score: Query<&Score>, win: Res<Windows>,) {
                 PaddleType::Right => format!("Right: {}", s.score)
             });
         }
+
+        ui.label("1P(Left): move W/D, toggle auto P");
+        ui.label("2P(Right): move Up/Down, toggle auto Q");
     });
 }
 
@@ -273,11 +276,11 @@ fn move_paddle(
                     if input.pressed(KeyCode::W) {
                         pos.y += speed;
                     }
-                    if input.pressed(KeyCode::O) {
+                    if input.pressed(KeyCode::S) {
                         pos.y -= speed;
                     }
                 }
-                if input.pressed(KeyCode::Q) {
+                if input.just_pressed(KeyCode::Q) {
                     paddle.is_auto = !paddle.is_auto;
                 }
             }
@@ -290,7 +293,7 @@ fn move_paddle(
                         pos.y -= speed;
                     }
                 }
-                if input.pressed(KeyCode::P) {
+                if input.just_pressed(KeyCode::P) {
                     paddle.is_auto = !paddle.is_auto;
                 }
             }
