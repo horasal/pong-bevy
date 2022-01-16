@@ -1,11 +1,11 @@
 [package]
 name = "pong_bevy"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["idid1 <xy_cheng@126.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.5"
-bevy_egui = "0.6"
+bevy = { version = "0.6", features = ["bevy_sprite", "bevy_audio", "bevy_render"] }
+bevy_egui = "0.10"

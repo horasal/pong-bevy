@@ -7,21 +7,25 @@ enum PaddleType {
     Right,
 }
 
+#[derive(Component)]
 struct Paddle {
     paddle_type: PaddleType,
     is_auto: bool,
 }
 
+#[derive(Component)]
 struct Position {
     y: f32,
 }
 
+#[derive(Component)]
 struct Ball {
     x: f32,
     y: f32,
     speed_fact: f32,
 }
 
+#[derive(Component)]
 struct Score {
     score: i64,
     paddle_type: PaddleType,
@@ -44,19 +48,19 @@ struct Sounds {
   Each system fetches some data (through `Query`) and modify them.
 */
 fn main() {
-    App::build()
+    App::new()
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
-        .insert_resource(bevy::render::pass::ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+        .insert_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
         .insert_resource(Counter { count: 0 })
-        .add_startup_system(setup.system())
-        .add_startup_system(spawn_ball.system())
-        .add_startup_system(spawn_paddle.system())
-        .add_system(ball_move.system())
-        .add_system(ball_speed_up.system())
-        .add_system(transform_paddle.system())
+        .add_startup_system(setup)
+        .add_startup_system(spawn_ball)
+        .add_startup_system(spawn_paddle)
+        .add_system(ball_move)
+        .add_system(ball_speed_up)
+        .add_system(transform_paddle)
         .add_system(move_paddle.system())
         .add_system(ball_collision.system())
         .add_system(auto_move_paddle.system())
@@ -80,8 +84,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn ui(context: ResMut<EguiContext>, score: Query<&Score>, win: Res<Windows>,) {
     let win = win.get_primary().unwrap();
     egui::Window::new("score")
-    .scroll(false)
     .default_pos(Pos2::new(win.width()/2.0-20.0, 0.0))
+    .hscroll(false)
     .show(context.ctx(), |ui| {
         for s in score.iter() {
             ui.label(match s.paddle_type {
@@ -305,15 +309,16 @@ fn move_paddle(
 fn spawn_ball(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mat = asset_server.load("ball.png");
-    let mat = materials.add(mat.into());
     commands
         .spawn()
         .insert_bundle(SpriteBundle {
-            material: mat,
-            sprite: Sprite::new(Vec2::new(40.0, 40.0)),
+            texture: mat,
+            sprite: Sprite{
+                custom_size: Some(Vec2::new(40.0, 40.0)),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Ball {
@@ -329,15 +334,16 @@ fn spawn_ball(
 fn spawn_paddle(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mat = asset_server.load("paddle1.png");
-    let mat = materials.add(mat.into());
     commands
         .spawn()
         .insert_bundle(SpriteBundle {
-            material: mat.clone(),
-            sprite: Sprite::new(Vec2::new(20.0, 100.0)),
+            texture: mat.clone(),
+            sprite: Sprite{
+                custom_size: Some(Vec2::new(20.0, 100.0)),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Paddle {
@@ -351,8 +357,11 @@ fn spawn_paddle(
         });
     commands.spawn()
         .insert_bundle(SpriteBundle {
-            material: mat,
-            sprite: Sprite::new(Vec2::new(20.0, 100.0)),
+            texture: mat,
+            sprite: Sprite{
+                custom_size: Some(Vec2::new(20.0, 100.0)),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Position { y: 0.0 })
